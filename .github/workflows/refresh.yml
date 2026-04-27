@@ -1,0 +1,53 @@
+name: AI Usage Refresh
+
+on:
+  schedule:
+    - cron: '0 */5 * * *'
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'API Provider (openai, anthropic, custom)'
+        required: false
+        default: ''
+      model:
+        description: 'Model name'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  API_PROVIDER: ${{ github.event.inputs.provider || vars.API_PROVIDER || 'openai' }}
+  API_KEY: ${{ secrets.API_KEY }}
+  API_BASE_URL: ${{ vars.API_BASE_URL }}
+  MODEL: ${{ github.event.inputs.model || vars.MODEL || '' }}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate configuration
+        run: |
+          if [ -z "${{ secrets.API_KEY }}" ]; then
+            echo "::error::API_KEY secret is not configured. Go to Settings > Secrets and variables > Actions > New repository secret"
+            exit 1
+          fi
+          echo "Provider: ${{ env.API_PROVIDER }}"
+          echo "Model: ${{ env.MODEL }}"
+
+      - name: Send refresh request
+        run: |
+          chmod +x refresh.sh
+          bash refresh.sh
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Refresh Result" >> $GITHUB_STEP_SUMMARY
+          echo "- **Provider:** \`${{ env.API_PROVIDER }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
