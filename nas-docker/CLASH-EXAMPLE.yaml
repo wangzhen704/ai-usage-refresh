@@ -1,13 +1,11 @@
-# Add this network to your existing, independently managed Clash/Mihomo compose.
-# Replace placeholder image with your chosen audited, digest-pinned image.
-# Do not publish the mixed proxy port to the Internet.
+# Your existing Mihomo container can remain in host network mode.
+# No shared Docker bridge network or port mapping is needed.
 services:
-  clash:
-    image: REPLACE_WITH_TRUSTED_PINNED_IMAGE
+  mihomo:
+    # Keep your existing audited image, volumes and command.
+    container_name: mihomo
     restart: unless-stopped
-    volumes:
-      - ./clash-config:/root/.config/mihomo:ro
-    networks: [ai_proxy_net]
-networks:
-  ai_proxy_net:
-    external: true
+    network_mode: host
+
+# Ensure Mihomo's HTTP/mixed proxy listener is available on the NAS loopback,
+# for example 127.0.0.1:7890. The dashboard uses http://127.0.0.1:7890.
