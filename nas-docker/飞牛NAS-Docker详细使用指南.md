@@ -84,56 +84,49 @@ nas-docker/
 
 在飞牛文件管理器中创建 `data` 文件夹。它用于持久化保存管理员密码、Claude Token、Codex 登录状态和运行配置。不要将该目录映射到公开共享链接。
 
-## 2. 准备 Clash 网络
+## 2. 网络模式：Dashboard 与 Mihomo 均使用 Host
 
-本项目不内置 Clash。你可以继续使用 NAS 上已有的 Clash/Mihomo Docker 容器。
-
-### 2.1 创建共享 Docker 网络
-
-在飞牛 Docker 的网络管理中，创建一个 bridge 类型网络，名称：
-
-`ai_proxy_net`
-
-如果飞牛界面没有创建自定义网络的入口，可以通过 SSH 登录 NAS，执行：
-
-```bash
-docker network create ai_proxy_net
-```
-
-如果提示网络已经存在，通常无需重复创建。
-
-### 2.2 将已有 Clash 容器加入网络
-
-需要把 Clash/Mihomo 容器接入 `ai_proxy_net`。如果 Clash 使用 Compose 项目，参考本目录的 `CLASH-EXAMPLE.yaml`，在 Clash 服务的 networks 中加入：
+你已经在飞牛 NAS 上将 Mihomo 配置为：
 
 ```yaml
-services:
-  clash:
-    # 保留你原来的 image、volumes、ports 等配置
-    networks:
-      - ai_proxy_net
-
-networks:
-  ai_proxy_net:
-    external: true
+container_name: mihomo
+restart: unless-stopped
+network_mode: host
 ```
 
-注意：
+本项目也采用 `network_mode: host`，与 Mihomo 共用 NAS 的网络命名空间。这样 Dashboard 可以直接通过 NAS 本机回环地址访问 Clash，不需要额外创建 Docker bridge 网络。
 
-- 不要照抄示例中的占位镜像名称。
-- 不要为了本项目重建或替换你现有的 Clash 配置。
-- Clash 必须在容器网络接口上监听 HTTP/Mixed 代理端口，例如 7890。
-- 如果 Clash 只监听 `127.0.0.1:7890`，其他容器无法连接；应在 Clash 配置中将代理监听地址设置为 `0.0.0.0`，并确保端口没有暴露到公网。
-- Clash 容器在 Docker 网络中的服务名应为 `clash`。如果实际服务名不同，后续代理地址也要使用实际名称。
-- 不要在代理 URL 中填写用户名密码。当前网页配置只接受不带认证信息的 HTTP/HTTPS 代理地址。
+**注意：Host 网络模式下不要同时配置 `ports:` 或 `networks:`。** Docker 会忽略端口映射概念；如果同时写入网络别名或自定义网络配置，就可能出现你之前遇到的 `network-scoped alias is supported only for containers in user defined networks` 错误。
 
-验证网络：
+### 2.1 检查 Mihomo 代理监听
+
+确认 Mihomo 的 HTTP/Mixed 代理端口，例如 7890，正在 NAS 本机监听。建议 Mihomo 配置使用：
+
+```yaml
+mixed-port: 7890
+allow-lan: false
+bind-address: 127.0.0.1
+```
+
+如果你的 Mihomo 配置已使用其他端口，以实际端口为准。这里使用 `127.0.0.1` 是因为 Dashboard 与 Mihomo 共用 host 网络；不需要为了 Dashboard 将代理开放到局域网。
+
+在 NAS SSH 中检查：
 
 ```bash
-docker network inspect ai_proxy_net
+ss -lntp | grep 7890
 ```
 
-输出中的 Containers 应能看到 Clash 容器。启动 AI Dashboard 后，也应能看到 dashboard 容器。
+正常情况下应能看到 NAS 本机的 7890 端口处于监听状态。若你的 Mihomo 只启用了 SOCKS 端口，请额外启用 HTTP/Mixed 端口，当前网页代理设置接受 HTTP/HTTPS 代理 URL。
+
+### 2.2 测试 NAS 本机代理
+
+如果 NAS 安装了 curl，可以执行：
+
+```bash
+curl -I -x http://127.0.0.1:7890 https://www.google.com
+```
+
+此命令用于确认代理端口可用。具体能否访问目标网站取决于你的 Clash 规则和节点状态。
 
 ## 3. 配置 Docker Compose 项目
 
@@ -152,7 +145,7 @@ cp .env.example .env
 CODEX_VERSION=0.167.1
 CLAUDE_VERSION=2.1.322
 DASHBOARD_PORT=8787
-PROXY_NETWORK=ai_proxy_net
+DASHBOARD_PORT=8787
 ```
 
 版本号是当前仓库示例中记录的固定候选版本，不是自动更新标签。构建前应检查 npm 对应版本是否存在、是否支持 NAS 架构。不要将版本改成 `latest`。
@@ -329,7 +322,7 @@ sudo chmod 600 data/claude-oauth-token
 
 建议按以下顺序：
 
-1. 检查 Clash 容器运行状态和共享网络。
+1. 检查 Mihomo 容器运行状态和 NAS 本机 7890 代理监听。
 2. 在 NAS 终端检查 Codex 登录状态。
 3. 检查 Claude Token 文件是否存在，权限是否为 600。
 4. 在网页中先点击 Claude 的「手动请求一次」。
@@ -387,7 +380,7 @@ docker compose up -d --build
 
 ### 10.3 迁移到新 NAS
 
-迁移前停止容器，将 data 目录安全复制到新 NAS，并保留目录权限。新 NAS 上重新创建共享 Docker 网络、调整 UID 10001 的目录所有权，再启动项目。迁移后检查 Codex 登录状态；若认证文件与设备绑定或失效，按官方流程重新登录。
+迁移前停止容器，将 data 目录安全复制到新 NAS，并保留目录权限。新 NAS 上确认 Mihomo 的本机代理端口可用、调整 UID 10001 的目录所有权，再启动项目。迁移后检查 Codex 登录状态；若认证文件与设备绑定或失效，按官方流程重新登录。
 
 ## 11. 常见问题
 
@@ -411,7 +404,7 @@ docker compose ps
 docker compose logs --tail=100 dashboard
 ```
 
-确认容器健康、8787 端口未被占用，并通过 SSH 隧道访问。由于 Compose 绑定到 NAS 的 127.0.0.1，直接访问 NAS 局域网 IP 的 8787 端口通常不会成功，这是预期的安全行为。
+确认容器健康、NAS 本机 8787 端口未被占用，并通过 SSH 隧道访问。由于 Dashboard 在 host 网络下仅监听 127.0.0.1，直接访问 NAS 局域网 IP 的 8787 端口通常不会成功，这是预期的安全行为。
 
 ### 11.3 提示 data 权限错误
 
@@ -443,7 +436,7 @@ sudo chmod 600 data/claude-oauth-token
 ### 11.6 代理连接失败
 
 - 页面代理地址应类似 `http://clash:7890`，不能填 localhost。
-- Clash 的代理监听地址不能只绑定 127.0.0.1。
+- 当前 host 网络方案下，Mihomo 绑定 127.0.0.1 正是推荐方式。
 - 容器必须接入共享网络 `ai_proxy_net`。
 - Clash 的端口要与网页填写一致。
 - 若使用 SOCKS-only 端口，请在 Clash 中启用 HTTP/Mixed 端口；当前网页配置仅接受 HTTP/HTTPS 代理 URL。
@@ -460,7 +453,7 @@ sudo chmod 600 data/claude-oauth-token
 - [ ] data 目录不对公网共享、不提交 Git、不随意复制。
 - [ ] Claude Token 和 Codex 登录状态仅保存在 NAS。
 - [ ] 网页管理端口不直接暴露公网，优先 SSH 隧道或 VPN。
-- [ ] Clash 代理只在 Docker 私有网络内开放，不暴露公网。
+- [ ] Mihomo 代理只监听 NAS 本机回环地址，不暴露公网。
 - [ ] 首次手动测试成功后再启用定时任务。
 - [ ] 定期检查 Claude 和 ChatGPT 官方用量页面及异常登录记录。
 - [ ] Token 泄露时立即撤销并重新授权。
