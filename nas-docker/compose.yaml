@@ -1,0 +1,22 @@
+services:
+  dashboard:
+    build:
+      context: .
+      args:
+        CODEX_VERSION: ${CODEX_VERSION:?Set an exact audited Codex CLI version}
+        CLAUDE_VERSION: ${CLAUDE_VERSION:?Set an exact audited Claude Code version}
+    restart: unless-stopped
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    pids_limit: 128
+    mem_limit: 768m
+    read_only: true
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=128m"]
+    volumes: ["./data:/data"]
+    ports: ["127.0.0.1:${DASHBOARD_PORT:-8787}:8787"]
+    networks: [ai_proxy_net]
+networks:
+  ai_proxy_net:
+    name: ${PROXY_NETWORK:-ai_proxy_net}
+    external: true
