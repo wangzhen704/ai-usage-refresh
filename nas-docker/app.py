@@ -28,7 +28,7 @@ def allowed_proxy(s):
     if len(s)>200 or any(c in s for c in "@#\\\n\r"):return False
     try:
         p=urlsplit(s)
-        return p.scheme in ("http","https","socks5","socks5h") and bool(p.hostname) and bool(p.port) and p.path in ("","/") and not p.query and not p.fragment
+        return p.scheme in ("http","https") and bool(p.hostname) and bool(p.port) and p.path in ("","/") and not p.query and not p.fragment
     except ValueError:return False
 def env_for(kind,settings):
     env={k:v for k,v in os.environ.items() if k not in
