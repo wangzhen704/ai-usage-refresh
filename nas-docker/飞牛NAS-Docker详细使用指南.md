@@ -229,9 +229,9 @@ docker compose exec dashboard cat /data/admin-password.txt
 
 ## 5. 配置代理，连接独立 Clash 容器
 
-登录网页，在「Clash HTTP / mixed 代理」填写：
+登录网页，在「Clash HTTP / mixed 代理（NAS 本机地址）」填写：
 
-`http://clash:7890`
+`http://127.0.0.1:7890`
 
 其中：
 
