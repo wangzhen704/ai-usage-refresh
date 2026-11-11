@@ -1,53 +1,76 @@
-name: AI Usage Refresh
+name: Subscription Usage Window Probe
 
 on:
   schedule:
-    - cron: '0 */5 * * *'
+    # GitHub cron is UTC. Every 5 hours is not evenly divisible into 24 hours.
+    # This schedule is an approximate, deliberately sparse probe.
+    - cron: '17 0,5,10,15,20 * * *'
   workflow_dispatch:
-    inputs:
-      provider:
-        description: 'API Provider (openai, anthropic, custom)'
-        required: false
-        default: ''
-      model:
-        description: 'Model name'
-        required: false
-        default: ''
 
 permissions:
   contents: read
 
-env:
-  API_PROVIDER: ${{ github.event.inputs.provider || vars.API_PROVIDER || 'openai' }}
-  API_KEY: ${{ secrets.API_KEY }}
-  API_BASE_URL: ${{ vars.API_BASE_URL }}
-  MODEL: ${{ github.event.inputs.model || vars.MODEL || '' }}
+concurrency:
+  group: subscription-probe
+  cancel-in-progress: false
 
 jobs:
-  refresh:
+  claude:
+    name: Claude Pro minimal request
+    if: github.repository == 'wangzhen704/ai-usage-refresh' && github.ref == 'refs/heads/main' && vars.ENABLE_CLAUDE_PROBE == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: claude-probe
+    permissions:
+      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Validate configuration
+      - name: Checkout reviewed code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Validate pinned Claude CLI version
+        env:
+          CLAUDE_CLI_VERSION: ${{ vars.CLAUDE_CLI_VERSION }}
+        shell: bash
         run: |
-          if [ -z "${{ secrets.API_KEY }}" ]; then
-            echo "::error::API_KEY secret is not configured. Go to Settings > Secrets and variables > Actions > New repository secret"
+          set -euo pipefail
+          [[ "$CLAUDE_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Set CLAUDE_CLI_VERSION to an exact audited X.Y.Z version"; exit 1; }
+      - name: Install selected Claude CLI release
+        env:
+          CLAUDE_CLI_VERSION: ${{ vars.CLAUDE_CLI_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}"
+          claude --version
+      - name: Send bounded subscription probe
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ''
+          ANTHROPIC_AUTH_TOKEN: ''
+          DISABLE_TELEMETRY: '1'
+          DISABLE_AUTOUPDATER: '1'
+        shell: bash
+        run: bash scripts/probe-claude.sh
+
+  codex-wif-readiness:
+    name: Codex WIF configuration readiness (no requests)
+    if: github.repository == 'wangzhen704/ai-usage-refresh' && github.ref == 'refs/heads/main' && vars.ENABLE_CODEX_WIF_PREFLIGHT == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Validate non-secret configuration only
+        env:
+          CODEX_WIF_AUDIENCE: ${{ vars.CODEX_WIF_AUDIENCE }}
+          CODEX_WIF_RULE_ID: ${{ vars.CODEX_WIF_RULE_ID }}
+          CODEX_WIF_PROVIDER_ID: ${{ vars.CODEX_WIF_PROVIDER_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$CODEX_WIF_AUDIENCE" && -n "$CODEX_WIF_RULE_ID" && -n "$CODEX_WIF_PROVIDER_ID" ]] || {
+            echo "::error::Codex WIF is not configured. Follow docs/CODEX-WIF.md."
             exit 1
-          fi
-          echo "Provider: ${{ env.API_PROVIDER }}"
-          echo "Model: ${{ env.MODEL }}"
-
-      - name: Send refresh request
-        run: |
-          chmod +x refresh.sh
-          bash refresh.sh
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "## Refresh Result" >> $GITHUB_STEP_SUMMARY
-          echo "- **Provider:** \`${{ env.API_PROVIDER }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          }
+          echo "Codex WIF configuration variables exist. No OIDC token was requested; no Codex request was made."
