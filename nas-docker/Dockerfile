@@ -8,6 +8,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-cert
 COPY app.py /opt/app/app.py
 COPY scripts/ /opt/app/scripts/
 USER app
-ENV APP_DATA=/data BIND_HOST=0.0.0.0 PORT=8787
+ENV APP_DATA=/data BIND_HOST=127.0.0.1 PORT=8787
 EXPOSE 8787
 CMD ["python3", "/opt/app/app.py"]
