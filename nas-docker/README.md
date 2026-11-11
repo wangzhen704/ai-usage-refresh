@@ -6,7 +6,7 @@ Independent NAS deployment of AI subscription usage-window probes. Web UI config
 
 - The dashboard does **not** collect OAuth tokens in web forms. ChatGPT device login persists in `./data/home-codex`; Claude Pro bearer credential is read from `./data/claude-oauth-token`. Both files live only on the NAS. Keep `./data` off Git, backups shared with others and public file shares.
 - A NAS is not automatically safe: restrict Docker host admin access, change the dashboard password if compromised, avoid exposing port 8787 to the Internet, keep NAS and images updated, review pinned CLI npm package releases.
-- The Compose file publishes **localhost only**, runs non-root, drops Linux capabilities, uses read-only root filesystem, limits memory and pids, and makes all automated calls opt-in.
+- The Compose file uses **host networking** to share the NAS network namespace with Mihomo, but the dashboard process binds only to `127.0.0.1:8787`; access it through an SSH tunnel or VPN. It runs non-root, drops Linux capabilities, uses a read-only root filesystem, limits memory and pids, and makes all automated calls opt-in.
 - The web dashboard has session cookies, CSRF, origin checks, modest input validation, and no shell-command field. Output and stderr from CLI calls are never stored or shown. Successful CLI execution **does not prove quota reset**.
 - A local admin login password is auto-generated at first boot. Fetch it only with `docker compose exec dashboard cat /data/admin-password.txt`. The password file must remain private.
 - Before using Claude, disable any account setting that permits unexpected extra paid usage, if available. Do not use `ANTHROPIC_API_KEY`.
@@ -82,7 +82,7 @@ networks:
     external: true
 ```
 
-Set the dashboard proxy to `http://clash:7890`. `localhost` inside dashboard points to the dashboard container, **not** the separate Clash container. Never use arbitrary unaudited proxy endpoints with account credentials. The Codex device-login helper and probe requests honor the configured proxy; Claude's token generation on your trusted computer uses that computer's connection.
+Set the dashboard proxy to `http://127.0.0.1:7890`. Because dashboard and Mihomo both use host networking, loopback is shared. Keep Mihomo bound to NAS loopback if possible; do not expose its proxy port publicly. The Codex device-login helper and probe requests honor the configured proxy; Claude's token generation on your trusted computer uses that computer's connection.
 
 ## Operation and limits
 
