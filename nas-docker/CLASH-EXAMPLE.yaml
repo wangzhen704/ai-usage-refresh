@@ -1,0 +1,9 @@
+# Your existing Mihomo container remains in host network mode.
+# Dashboard also uses host mode and connects to the proxy at 127.0.0.1:7890.
+# Keep the proxy listener on NAS loopback; do not expose it publicly.
+services:
+  mihomo:
+    # Keep your existing image, volumes, command and config.
+    container_name: mihomo
+    restart: unless-stopped
+    network_mode: host

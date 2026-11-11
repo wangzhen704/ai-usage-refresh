@@ -1,0 +1,24 @@
+services:
+  dashboard:
+    build:
+      context: .
+      args:
+        CODEX_VERSION: ${CODEX_VERSION:?Set an exact audited Codex CLI version}
+        CLAUDE_VERSION: ${CLAUDE_VERSION:?Set an exact audited Claude Code version}
+    restart: unless-stopped
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    pids_limit: 128
+    mem_limit: 768m
+    read_only: true
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=128m"]
+    volumes:
+      - ./data:/data
+    # Both dashboard and Mihomo use the NAS host network namespace.
+    # Do not add ports: or networks: when network_mode is host.
+    network_mode: host
+    environment:
+      APP_DATA: /data
+      BIND_HOST: 127.0.0.1
+      PORT: ${DASHBOARD_PORT:-8787}
