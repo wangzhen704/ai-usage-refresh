@@ -1,11 +1,9 @@
-# Your existing Mihomo container can remain in host network mode.
-# No shared Docker bridge network or port mapping is needed.
+# Your existing Mihomo container remains in host network mode.
+# Dashboard also uses host mode and connects to the proxy at 127.0.0.1:7890.
+# Keep the proxy listener on NAS loopback; do not expose it publicly.
 services:
   mihomo:
-    # Keep your existing audited image, volumes and command.
+    # Keep your existing image, volumes, command and config.
     container_name: mihomo
     restart: unless-stopped
     network_mode: host
-
-# Ensure Mihomo's HTTP/mixed proxy listener is available on the NAS loopback,
-# for example 127.0.0.1:7890. The dashboard uses http://127.0.0.1:7890.
