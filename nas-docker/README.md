@@ -1,4 +1,4 @@
-# NAS Docker: Claude Pro + ChatGPT Codex dashboard
+# NAS Docker: Claude Pro + ChatGPT Codex dashboard\n\n**飞牛 NAS 用户请先阅读：[飞牛 NAS（fnOS）Docker 部署与使用指南](飞牛NAS-Docker详细使用指南.md)**\n
 
 Independent NAS deployment of AI subscription usage-window probes. Web UI configures two provider toggles, interval, model and proxy. The actual CLI login happens **inside the NAS container**, never in GitHub Secrets or the browser.
 
