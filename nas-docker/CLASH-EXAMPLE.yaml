@@ -1,0 +1,13 @@
+# Add this network to your existing, independently managed Clash/Mihomo compose.
+# Replace placeholder image with your chosen audited, digest-pinned image.
+# Do not publish the mixed proxy port to the Internet.
+services:
+  clash:
+    image: REPLACE_WITH_TRUSTED_PINNED_IMAGE
+    restart: unless-stopped
+    volumes:
+      - ./clash-config:/root/.config/mihomo:ro
+    networks: [ai_proxy_net]
+networks:
+  ai_proxy_net:
+    external: true
