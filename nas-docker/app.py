@@ -12,7 +12,7 @@ if not PASSWORD.exists():
     PASSWORD.write_text(secrets.token_urlsafe(24)+"\n")
     PASSWORD.chmod(0o600)
 DEFAULT={"claude_enabled":False,"codex_enabled":False,"interval_minutes":300,
- "proxy_url":"","claude_model":"haiku","codex_model":"","codex_effort":"low"}
+ "proxy_url":"http://127.0.0.1:7890","claude_model":"haiku","codex_model":"","codex_effort":"low"}
 def load(path,default):
     try: return json.loads(path.read_text())
     except (ValueError,FileNotFoundError): return default.copy()
@@ -120,7 +120,7 @@ class Web(BaseHTTPRequestHandler):
             checked=" checked" if settings[kind+"_enabled"] else ""
             b+='<label><input type="checkbox" name="'+kind+'_enabled"'+checked+'>启用 '+kind.title()+' 定时请求</label>'
         b+='<label>执行间隔（分钟）</label><input type="number" min="60" max="10080" name="interval_minutes" value="'+str(settings["interval_minutes"])+'">'
-        b+='<label>Clash HTTP / mixed 代理</label><input type="text" name="proxy_url" placeholder="http://clash:7890" value="'+esc(settings["proxy_url"])+'"><small>Clash 容器须与此容器处于同一 Docker 网络。</small>'
+        b+='<label>Clash HTTP / mixed 代理（NAS 本机地址）</label><input type="text" name="proxy_url" placeholder="http://127.0.0.1:7890" value="'+esc(settings["proxy_url"])+'"><small>Dashboard 与 Mihomo 均使用 host 网络；此处填写 NAS 本机代理监听地址。</small>'
         b+='<label>Codex 模型（留空使用默认）</label><input type="text" name="codex_model" value="'+esc(settings["codex_model"])+'">'
         b+='<label>Codex 推理强度</label><select name="codex_effort">'+''.join('<option value="'+v+'"'+(" selected" if settings["codex_effort"]==v else "")+'>'+v+'</option>' for v in ("minimal","low","medium"))+'</select><p>Claude 固定使用 Haiku，内容为 hi。</p><button>保存配置</button></form></section>'
         b+='<section><h2>认证（仅 NAS 终端）</h2><p>Codex：<code>docker compose exec dashboard sh /opt/app/scripts/codex-login.sh</code></p><p>Claude：本地 <code>claude setup-token</code> 后，将 Token 写入 <code>/data/claude-oauth-token</code>（权限 600）。网页不接收 OAuth Token。</p></section>'
