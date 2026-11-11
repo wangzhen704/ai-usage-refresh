@@ -10,7 +10,10 @@ This branch intentionally replaces the original generic API-key refresh workflow
 - On your trusted local computer, log into the **Claude Pro subscription**, then run `claude setup-token`. Store the returned credential only in the GitHub Environment Secret. Do not paste it into chat, code, commits, or logs. It is a long-lived bearer credential: protect and rotate it.
 - Set repository Actions Variable `CLAUDE_CLI_VERSION` to an **exact verified version** of `@anthropic-ai/claude-code`. Inspect the selected release and update manually; there is intentionally no `latest`.
 - Do not set `ANTHROPIC_API_KEY`. The workflow unsets API credentials to avoid accidental API pay-as-you-go billing.
-- Run once manually **after merging** before enabling recurring probes. Verify in Claude usage/account settings that the subscription, not Console API billing, is being used.
+- Claude probe uses `claude -p 'hi' --model haiku --max-turns 1 --tools '' --output-format text`; this requests the lowest-cost Claude Code model family rather than the CLI default. Check that your chosen pinned CLI version supports `--model haiku`.
+- Disable any extra pay-as-you-go / additional-usage setting in your Claude account before activation if you want a hard subscription-only spending boundary.
+- To perform the first manual test after merging, temporarily set `ENABLE_CLAUDE_PROBE=true`, trigger `workflow_dispatch`, inspect the sanitized result and confirm in Claude usage/account settings that the subscription (not Console API billing) was used; then set it back to `false` while evaluating. The same variable gates scheduled and manual requests.
+- The workflow does not introspect or manage Claude's five-hour window: it only makes one small real request, which may start a new window **if the previous window has ended**.
 - The current cron probes at 00:17, 05:17, 10:17, 15:17, and 20:17 UTC; the last gap is four hours. GitHub cron may be delayed. It is **not** an exact rolling five-hour timer, and a successful request **does not establish that a quota reset occurred**.
 - Claude Pro has shared usage caps. Small synthetic requests still consume usage. Disable `ENABLE_CLAUDE_PROBE` if it is not demonstrably useful.
 
